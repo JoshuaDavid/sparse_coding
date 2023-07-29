@@ -579,8 +579,20 @@ def run_with_real_data(cfg, auto_encoder: AutoEncoder, completed_batches: int = 
     for epoch in range(cfg.epochs):
         chunk_order = np.random.permutation(n_chunks_in_folder)
         for chunk_ndx, chunk_id in enumerate(chunk_order):
-            chunk_loc = os.path.join(cfg.dataset_folder, f"{chunk_id}.pkl")
-            dataset = DataLoader(pickle.load(open(chunk_loc, "rb")), batch_size=cfg.batch_size, shuffle=True)
+            chunk_loc = os.path.join(cfg.dataset_folder, f"{chunk_id}")
+            if os.path.isfile(f'{chunk_loc}.pkl'):
+                dataset = DataLoader(
+                        pickle.load(open(f'{chunk_loc}.pkl', "rb")),
+                        batch_size=cfg.batch_size,
+                        shuffle=True
+                )
+            elif os.path.isfile(f'{chunk_loc}.pt'):
+                dataset = DataLoader(torch.load(f'{chunk_loc}.pt'))
+                dataset = DataLoader(
+                        torch.load(f'{chunk_path_base}.pt').to(device="cpu", dtype=torch.float32),
+                        batch_size=cfg.batch_size,
+                        shuffle=True
+                )
             for batch_idx, batch in enumerate(dataset):
                 n_batches += 1
                 batch = batch[0].to(cfg.device).to(torch.float32)
