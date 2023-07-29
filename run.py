@@ -595,13 +595,16 @@ def run_with_real_data(cfg, auto_encoder: AutoEncoder, completed_batches: int = 
                 )
             for batch_idx, batch in enumerate(dataset):
                 n_batches += 1
-                batch = batch[0].to(cfg.device).to(torch.float32)
+                batch = batch.to(cfg.device).to(torch.float32)
                 optimizer.zero_grad()
                 # Run through auto_encoder
 
                 x_hat, dict_levels = auto_encoder(batch)
                 print(f'''
                     type(x_hat)={type(x_hat)}
+                    x_hat.shape={x_hat.shape}
+                    type(batch)={type(batch)}
+                    batch.shape={batch.shape}
                     type(dict_levels)={type(dict_levels)}
                     dict_levels.shape={dict_levels.shape}
                 ''')
