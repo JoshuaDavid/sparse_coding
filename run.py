@@ -580,12 +580,14 @@ def run_with_real_data(cfg, auto_encoder: AutoEncoder, completed_batches: int = 
         chunk_order = np.random.permutation(n_chunks_in_folder)
         for chunk_ndx, chunk_id in enumerate(chunk_order):
             chunk_loc = os.path.join(cfg.dataset_folder, f"{chunk_id}")
+            chunk_type = None
             if os.path.isfile(f'{chunk_loc}.pkl'):
                 dataset = DataLoader(
                         pickle.load(open(f'{chunk_loc}.pkl', "rb")),
                         batch_size=cfg.batch_size,
                         shuffle=True
                 )
+                chunk_type = 'pkl'
             elif os.path.isfile(f'{chunk_loc}.pt'):
                 dataset = DataLoader(torch.load(f'{chunk_loc}.pt'))
                 dataset = DataLoader(
@@ -593,21 +595,19 @@ def run_with_real_data(cfg, auto_encoder: AutoEncoder, completed_batches: int = 
                         batch_size=cfg.batch_size,
                         shuffle=True
                 )
+                chunk_type = 'pt'
+            else:
+                raise Exception(f"Failed to find chunk of type .pt or .pkl at {chunk_loc}");
             for batch_idx, batch in enumerate(dataset):
                 n_batches += 1
-                batch = batch.to(cfg.device).to(torch.float32)
+                if chunk_type == 'pkl':
+                    batch = batch[0].to(cfg.device).to(torch.float32)
+                else:
+                    batch = batch.to(cfg.device).to(torch.float32)
                 optimizer.zero_grad()
                 # Run through auto_encoder
 
                 x_hat, dict_levels = auto_encoder(batch)
-                print(f'''
-                    type(x_hat)={type(x_hat)}
-                    x_hat.shape={x_hat.shape}
-                    type(batch)={type(batch)}
-                    batch.shape={batch.shape}
-                    type(dict_levels)={type(dict_levels)}
-                    dict_levels.shape={dict_levels.shape}
-                ''')
                 l_reconstruction = torch.nn.MSELoss()(batch, x_hat)
                 l_l1 = cfg.l1_alpha * torch.norm(dict_levels, 1, dim=1).mean()
                 loss = l_reconstruction + l_l1
