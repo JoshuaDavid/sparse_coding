@@ -767,6 +767,7 @@ def run_real_data_model(cfg: dotdict):
                 dataset = pickle.load(f)
                 cfg.activation_dim = dataset.tensors[0][0].shape[-1]
         elif os.path.isfile(f'{chunk_path_base}.pt'):
+            dataset = torch.load(f'{chunk_path_base}.pt').to(device="cpu", dtype=torch.float32)
             print(f"Loaded dataset from .pt, shape={dataset.shape}")
             cfg.activation_dim = dataset.shape[-1]
         n_lines = cfg.max_lines
