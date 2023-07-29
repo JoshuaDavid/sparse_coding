@@ -600,6 +600,11 @@ def run_with_real_data(cfg, auto_encoder: AutoEncoder, completed_batches: int = 
                 # Run through auto_encoder
 
                 x_hat, dict_levels = auto_encoder(batch)
+                print(f'''
+                    type(x_hat)={type(x_hat)}
+                    type(dict_levels)={type(dict_levels)}
+                    dict_levels.shape={dict_levels.shape}
+                ''')
                 l_reconstruction = torch.nn.MSELoss()(batch, x_hat)
                 l_l1 = cfg.l1_alpha * torch.norm(dict_levels, 1, dim=1).mean()
                 loss = l_reconstruction + l_l1
