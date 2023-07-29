@@ -480,7 +480,7 @@ def run_toy_model(cfg):
         secrets = json.load(open("secrets.json"))
         wandb.login(key=secrets["wandb_key"])
         wandb_run_name = f"{cfg.model_name}_{start_time[4:]}"  # trim year
-        wandb.init(project="sparse coding", config=dict(cfg), name=wandb_run_name, entity="sparse_coding")
+        wandb.init(project="sparse coding", config=dict(cfg), name=wandb_run_name, entity=cfg.wandb_entity)
 
     
     # Using a single data generator for all runs so that can compare learned dicts
@@ -815,7 +815,7 @@ def run_real_data_model(cfg: dotdict):
             l1_loss = l1_range[l1_ndx]
             dict_size = dict_sizes[dict_size_ndx]
             if cfg.use_wandb:
-                wandb.init(project="sparse coding", config=dict(cfg), group=wandb_run_name, name=f"l1={l1_loss:.0E}_dict={dict_size}" ,entity="sparse_coding")
+                wandb.init(project="sparse coding", config=dict(cfg), group=wandb_run_name, name=f"l1={l1_loss:.0E}_dict={dict_size}" ,entity=cfg.wandb_entity)
 
             cfg.l1_alpha = l1_loss
             cfg.n_components_dictionary = dict_size
@@ -833,7 +833,7 @@ def run_real_data_model(cfg: dotdict):
             if cfg.use_wandb:
                 wandb.finish()
         if cfg.use_wandb:
-            wandb.init(project="sparse coding", config=dict(cfg), group=wandb_run_name+"_graphs", name=f"mini_run:{mini_run}", entity="sparse_coding")
+            wandb.init(project="sparse coding", config=dict(cfg), group=wandb_run_name+"_graphs", name=f"mini_run:{mini_run}", entity=cfg.wandb_entity)
 
         # run MMCS-with-larger at the end of each mini run
         learned_dicts = [[auto_e.decoder.weight.detach().cpu().data.t() for auto_e in l1] for l1 in auto_encoders]
