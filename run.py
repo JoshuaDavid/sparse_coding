@@ -589,7 +589,7 @@ def run_with_real_data(cfg, auto_encoder: AutoEncoder, completed_batches: int = 
             elif os.path.isfile(f'{chunk_loc}.pt'):
                 dataset = DataLoader(torch.load(f'{chunk_loc}.pt'))
                 dataset = DataLoader(
-                        torch.load(f'{chunk_path_base}.pt').to(device="cpu", dtype=torch.float32),
+                        torch.load(f'{chunk_loc}.pt').to(device="cpu", dtype=torch.float32),
                         batch_size=cfg.batch_size,
                         shuffle=True
                 )
