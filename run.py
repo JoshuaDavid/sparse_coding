@@ -32,6 +32,7 @@ import wandb
 
 from activation_dataset import setup_data
 from argparser import parse_args
+from autoencoders.tied_ae import AutoEncoder
 from nanoGPT_model import GPT
 from utils import *
 
@@ -204,30 +205,30 @@ def generate_corr_matrix(num_feats: int, device: Union[torch.device, str]) -> Te
 
 
 # AutoEncoder Definition
-class AutoEncoder(nn.Module):
-    def __init__(self, activation_size, n_dict_components, t_type=torch.float32, l1_coef=0.0):
-        super(AutoEncoder, self).__init__()
-        self.decoder = nn.Linear(n_dict_components, activation_size, bias=False)
-        # Initialize the decoder weights orthogonally
-        nn.init.orthogonal_(self.decoder.weight)
-        self.decoder = self.decoder.to(t_type)
-
-        self.encoder = nn.Sequential(nn.Linear(activation_size, n_dict_components).to(t_type), nn.ReLU())
-        self.l1_coef = l1_coef
-        self.activation_size = activation_size
-        self.n_dict_components = n_dict_components
-
-    def forward(self, x):
-        c = self.encoder(x)
-        # Apply unit norm constraint to the decoder weights
-        self.decoder.weight.data = nn.functional.normalize(self.decoder.weight.data, dim=0)
-
-        x_hat = self.decoder(c)
-        return x_hat, c
-
-    @property
-    def device(self):
-        return next(self.parameters()).device
+# class AutoEncoder(nn.Module):
+#     def __init__(self, activation_size, n_dict_components, t_type=torch.float32, l1_coef=0.0):
+#         super(AutoEncoder, self).__init__()
+#         self.decoder = nn.Linear(n_dict_components, activation_size, bias=False)
+#         # Initialize the decoder weights orthogonally
+#         nn.init.orthogonal_(self.decoder.weight)
+#         self.decoder = self.decoder.to(t_type)
+# 
+#         self.encoder = nn.Sequential(nn.Linear(activation_size, n_dict_components).to(t_type), nn.ReLU())
+#         self.l1_coef = l1_coef
+#         self.activation_size = activation_size
+#         self.n_dict_components = n_dict_components
+# 
+#     def forward(self, x):
+#         c = self.encoder(x)
+#         # Apply unit norm constraint to the decoder weights
+#         self.decoder.weight.data = nn.functional.normalize(self.decoder.weight.data, dim=0)
+# 
+#         x_hat = self.decoder(c)
+#         return x_hat, c
+# 
+#     @property
+#     def device(self):
+#         return next(self.parameters()).device
 
 
 def cosine_sim(
