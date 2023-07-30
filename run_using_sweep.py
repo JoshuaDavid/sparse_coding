@@ -66,7 +66,11 @@ if __name__ == '__main__':
     cfg.dtype = torch.float32
     cfg.lr = 3e-4
 
-    print(json.dumps(cfg, indent=' '))
+    print(json.dumps({
+        k:v
+        for k,v in cfg.items()
+        if type(v) in [str, int, float, bool, dict, list, tuple, type(None)]
+    } , indent=' '))
 
     sweep(sweep_l1_vals_and_dict_ratios, cfg);
 
