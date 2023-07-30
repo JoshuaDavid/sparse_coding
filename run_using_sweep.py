@@ -1,6 +1,7 @@
 from argparser import parse_args
 import json
 import torch
+import torchopt
 import numpy as np
 from autoencoders.ensemble import FunctionalEnsemble
 from autoencoders.sae_ensemble import FunctionalSAE
