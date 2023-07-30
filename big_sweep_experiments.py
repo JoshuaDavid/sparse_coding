@@ -53,7 +53,7 @@ def tied_vs_not_experiment(cfg):
     dict_sizes = [cfg.activation_width * ratio for ratio in dict_ratios]
 
     ensembles = []
-    devices = [f"cuda:{i}" for i in range(8)]
+    devices = [f"cuda:{i%torch.cuda.device_count()}" for i in range(8)]
 
     for i in range(2):
         cfgs = product(l1_values[i*2:(i+1)*2], bias_decays)
@@ -200,7 +200,7 @@ DICT_RATIO = None
 
 def dense_l1_range_experiment(cfg):
     l1_values = np.logspace(-4, -2, 32)
-    devices = [f"cuda:{i}" for i in range(8)]
+    devices = [f"cuda:{i%torch.cuda.device_count()}" for i in range(8)]
 
     ensembles = []
     for i in range(8):
@@ -227,7 +227,7 @@ def dense_l1_range_experiment(cfg):
 
 def residual_denoising_experiment(cfg):
     l1_values = np.logspace(-5, -3, 32)
-    devices = [f"cuda:{i}" for i in range(8)]
+    devices = [f"cuda:{i%torch.cuda.device_count()}" for i in range(8)]
 
     ensembles = []
     for i in range(8):
@@ -258,7 +258,7 @@ def residual_denoising_experiment(cfg):
 
 def residual_denoising_comparison(cfg):
     l1_values = np.logspace(-4, -2, 32)
-    devices = [f"cuda:{i}" for i in range(8)]
+    devices = [f"cuda:{i%torch.cuda.device_count()}" for i in range(8)]
 
     ensembles = []
     for i in range(8):
