@@ -2,6 +2,7 @@ from argparser import parse_args
 import json
 import torch
 import numpy as np
+from autoencoders.ensemble import FunctionalEnsemble
 from autoencoders.sae_ensemble import FunctionalSAE
 import itertools
 from big_sweep import sweep
