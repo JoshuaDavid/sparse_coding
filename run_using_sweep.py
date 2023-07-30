@@ -65,6 +65,8 @@ if __name__ == '__main__':
 
     cfg.dtype = torch.float32
     cfg.lr = 3e-4
+    if not hasattr(cfg, 'dataset_folder'):
+        cfg.dataset_folder = cfg.datasets_folder
 
     print(json.dumps({
         k:v
