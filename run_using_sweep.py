@@ -44,7 +44,7 @@ def sweep_l1_vals_and_dict_ratios(cfg):
             ),
             'run_sweep_{i}'
         )
-        for device, models_by_dict_size in zip(devices, models_by_device_and_dictsize.values())
+        for device, models_by_dict_size in zip(devices, models_by_device_and_dictsize)
         for dict_size, models in models_by_dict_size.items()
     ]
 
