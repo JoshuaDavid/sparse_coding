@@ -23,3 +23,4 @@ auto_interp_results
 
 # ideally would load autointerp as a module but can't get it working so just cloning and ignoring
 neuron_explainer
+.ipynb_checkpoints
