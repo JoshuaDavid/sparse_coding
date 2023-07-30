@@ -65,6 +65,8 @@ if __name__ == '__main__':
 
     cfg.dtype = torch.float32
     cfg.lr = 3e-4
+    cfg.use_synthetic_dataset = False
+
     if not hasattr(cfg, 'dataset_folder'):
         cfg.dataset_folder = cfg.datasets_folder
     if not hasattr(cfg, 'output_folder'):
