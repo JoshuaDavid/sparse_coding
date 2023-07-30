@@ -3,6 +3,7 @@ import torch
 import numpy as np
 from autoencoders.sae_ensemble import FunctionalSAE
 import itertools
+from big_sweep import sweep
 
 def sweep_l1_vals_and_dict_ratios(cfg):
     devices = [f"cuda:{i}" for i in range(torch.cuda.device_count())]
