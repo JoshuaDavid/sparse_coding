@@ -67,6 +67,8 @@ if __name__ == '__main__':
     cfg.lr = 3e-4
     if not hasattr(cfg, 'dataset_folder'):
         cfg.dataset_folder = cfg.datasets_folder
+    if not hasattr(cfg, 'output_folder'):
+        cfg.output_folder = cfg.outputs_folder
 
     print(json.dumps({
         k:v
