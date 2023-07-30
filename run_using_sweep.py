@@ -1,4 +1,5 @@
 from argparser import parse_args
+import json
 import torch
 import numpy as np
 from autoencoders.sae_ensemble import FunctionalSAE
