@@ -743,6 +743,7 @@ def get_size_of_momentum(cfg: dotdict, optimizer: torch.optim.Optimizer):
     """
     adam_momentum_tensor = optimizer.state_dict()["state"][0]["exp_avg"]
     decoder_shape = cfg.activation_dim, cfg.n_components_dictionary  # decoder is Linear(n_components, activation_dim) so tensor is stored as (activation_dim, n_components)
+    print(adam_momentum_tensor.shape, decoder_shape, cfg.activation_width)
     assert adam_momentum_tensor.shape == decoder_shape
     return adam_momentum_tensor.detach().abs().sum().item()  # sum of absolute values of all elements
 
