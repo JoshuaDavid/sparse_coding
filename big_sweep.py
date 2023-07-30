@@ -291,7 +291,7 @@ def sweep(ensemble_init_func, cfg):
         secrets = json.load(open("secrets.json"))
         wandb.login(key=secrets["wandb_key"])
         wandb_run_name = f"ensemble_{cfg.model_name}_{start_time[4:]}"  # trim year
-        cfg.wandb_instance = wandb.init(project="sparse coding", config=dict(cfg), name=wandb_run_name, entity=cfg.wandb_entity)
+        cfg.wandb_instance = wandb.init(project="sparse coding", config=dict(cfg), group=wandb_run_name, name=wandb_run_name, entity=cfg.wandb_entity)
 
     if cfg.use_synthetic_dataset:
         init_synthetic_dataset(cfg)

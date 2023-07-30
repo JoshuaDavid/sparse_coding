@@ -44,7 +44,7 @@ def sweep_l1_vals_and_dict_ratios(cfg):
                 device=device,
                 dict_size=dict_size
             ),
-            'run_sweep_{i}'
+            f'run_sweep_{i}'
         )
         for device, models_by_dict_size in zip(devices, models_by_device_and_dictsize)
         for dict_size, models in models_by_dict_size.items()
@@ -66,9 +66,17 @@ def sweep_l1_vals_and_dict_ratios(cfg):
 if __name__ == '__main__':
     cfg = parse_args()
 
+    # Shamelessly copied from big_sweep_experiments.py
     cfg.dtype = torch.float32
     cfg.lr = 3e-4
     cfg.use_synthetic_dataset = False
+    cfg.batch_size = 2048
+    cfg.gen_batch_size = 4096
+    cfg.n_ground_truth_components = 1024
+    cfg.activation_width = 512
+    cfg.noise_magnitude_scale = 0.001
+    cfg.feature_prob_decay = 0.99
+    cfg.feature_num_nonzero = 10
 
     if not hasattr(cfg, 'dataset_folder'):
         cfg.dataset_folder = cfg.datasets_folder
