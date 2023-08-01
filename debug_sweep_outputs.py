@@ -7,6 +7,11 @@ from transformer_lens import HookedTransformer
 import numpy as np
 import matplotlib.pyplot as plt
 
+# Fix up path issues so that we can load the model using torch.load
+import sys
+import os
+sys.path.insert(0, os.path.realpath('..'))
+
 # Load the autoencoders
 model_name = "EleutherAI/pythia-70m-deduped"
 filename = r'/workspace/sparse_coding/outputs/_0/learned_dicts.pt'
@@ -22,7 +27,6 @@ else:
 device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 learned_dicts = torch.load(filename)
 learned_dict, hyperparam_values = learned_dicts[-1]
-model = HookedTransformer.from_pretrained(model_name, device=device)
 
 # Confirm that, within the largest autoencoder, the learned features are almost orthogonal
 learned_decoder_normed = learned_dict.get_learned_dict()
@@ -70,3 +74,62 @@ plt.xlabel(f"MCS with any feature in size-{smaller_dict_size} dict")
 plt.ylabel(f"Count of features in size-{larger_dict_size} dict")
 plt.hist(larger_mcs, bins=50)
 plt.show()
+
+# Make sure that the dataset is actually reasonable
+from transformer_lens import HookedTransformer
+from activation_dataset import make_sentence_dataset, chunk_and_tokenize
+from torch import tensor
+import json
+
+model_name = "EleutherAI/pythia-70m-deduped"
+dataset_name = 'NeelNanda/pile-10k'
+max_lines = 100000
+model = HookedTransformer.from_pretrained(model_name)
+tokenizer = model.tokenizer
+sentence_dataset = make_sentence_dataset(dataset_name, max_lines=max_lines, start_line=0)
+tokenized_sentence_dataset, bits_per_byte = chunk_and_tokenize(sentence_dataset, tokenizer, max_length=256)
+input_ids = tokenized_sentence_dataset['input_ids']
+_, real_cache = model.run_with_cache(input_ids[0])
+_, cache_len1 = model.run_with_cache(input_ids[0][:1])
+_, cache_len2 = model.run_with_cache(input_ids[0][:2])
+
+# First row is activation on first token alone (i.e. <|endoftext|>)
+assert real_cache['blocks.2.hook_resid_post'].shape == (1, 256, 512)
+assert cache_len1['blocks.2.hook_resid_post'].shape == (1,   1, 512)
+assert cache_len2['blocks.2.hook_resid_post'].shape == (1,   2, 512)
+assert torch.allclose(
+    real_cache['blocks.2.hook_resid_post'][0,0],
+    cache_len1['blocks.2.hook_resid_post'][0,0],
+    atol=1e-3
+)
+# Then on first two (i.e. <|endoftext|>It)
+assert torch.allclose(
+    real_cache['blocks.2.hook_resid_post'][0,1],
+    cache_len2['blocks.2.hook_resid_post'][0,1],
+    atol=1e-3
+)
+# So this means that the dataset looks something like the layer-2 residuals
+# for the following inputs
+# <|endoftext|>
+# <|endoftext|>It
+# <|endoftext|>It is
+# <|endoftext|>It is done
+# <|endoftext|>It is done,
+# <|endoftext|>It is done, and
+
+# Check for duplicate inputs:
+# There are not many duplicates of length >= 20 tokens, so no need to worry
+# about that.
+c = Counter(tokenizer.decode(ipt[:i]) for ipt in input_ids for i in range(1,20))
+for st, ct in c.most_common(10):
+    print(f"{ct:>4d} {json.dumps(st)}")
+# 2383 "\n"
+# 2078 "."
+# 1854 ","
+# 1721 " the"
+#  963 " of"
+#  853 " and"
+#  766 "\n\n"
+#  763 " to"
+#  746 "-"
+#  635 " a"
