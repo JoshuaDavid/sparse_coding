@@ -70,13 +70,13 @@ if __name__ == '__main__':
     cfg.dtype = torch.float32
     cfg.lr = 3e-4
     cfg.use_synthetic_dataset = False
-    cfg.batch_size = 2048
-    cfg.gen_batch_size = 4096
-    cfg.n_ground_truth_components = 1024
-    cfg.activation_width = 512
-    cfg.noise_magnitude_scale = 0.001
-    cfg.feature_prob_decay = 0.99
-    cfg.feature_num_nonzero = 10
+    # cfg.batch_size = 2048
+    # cfg.gen_batch_size = 4096
+    # cfg.n_ground_truth_components = 1024
+    # cfg.activation_width = 512
+    # cfg.noise_magnitude_scale = 0.001
+    # cfg.feature_prob_decay = 0.99
+    # cfg.feature_num_nonzero = 10
 
     if not hasattr(cfg, 'dataset_folder'):
         cfg.dataset_folder = cfg.datasets_folder
