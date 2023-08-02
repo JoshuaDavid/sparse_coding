@@ -17,9 +17,9 @@ def act_name_to_module(act_str):
         raise ValueError(f"Unknown activation function: {act_str}")
 
 class SAE(nn.Module):
-    def __init__(self, activation_size, n_dict_components, t_type=torch.float32, l1_coef=0.0, activation="relu", bias_l2_coef=0.0):
+    def __init__(self, activation_size, n_dict_components, t_type=torch.float32, l1_coef=0.0, activation="relu", bias_l2_coef=0.0, bias=False):
         super(SAE, self).__init__()
-        self.decoder = nn.Linear(n_dict_components, activation_size, bias=False)
+        self.decoder = nn.Linear(n_dict_components, activation_size, bias=bias)
         # Initialize the decoder weights orthogonally
         nn.init.orthogonal_(self.decoder.weight)
         self.decoder = self.decoder.to(t_type)
