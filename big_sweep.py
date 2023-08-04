@@ -64,20 +64,6 @@ def calc_expected_interference(dictionary, batch):
     nonzero_capacity = capacities.sum(dim=0) / torch.clamp(nonzero_count, min=1.0)
     return nonzero_capacity
 
-# weird asymmetric kurtosis/skew with center at 0
-def calc_feature_skew(batch):
-    # batch: [batch_size, n_features]
-    variance = torch.var(batch, dim=0)
-    asymm_skew = torch.mean(batch**3, dim=0) / torch.clamp(variance**1.5, min=1e-8)
-
-    return asymm_skew
-
-def calc_feature_kurtosis(batch):
-    # batch: [batch_size, n_features]
-    variance = torch.var(batch, dim=0)
-    asymm_kurtosis = torch.mean(batch**4, dim=0) / torch.clamp(variance**2, min=1e-8)
-
-    return asymm_kurtosis
 
 def filter_learned_dicts(learned_dicts, hyperparam_filters):
     from math import isclose
@@ -151,12 +137,13 @@ def log_standard_metrics(learned_dicts, chunk, chunk_num, hyperparam_ranges, cfg
             bins=20
         )
     
-    if len(dict_sizes) > 1:
-        for k, plot in mmcs_grid_plots.items():
-            cfg.wandb_instance.log({f"mmcs_grid_{chunk_num}/{k}": wandb.Image(plot)}, commit=False)
-    
-    for k, plot in sparsity_hists.items():
-        cfg.wandb_instance.log({f"sparsity_hist_{chunk_num}/{k}": wandb.Image(plot)})
+    if cfg.use_wandb:
+        if len(dict_sizes) > 1:
+            for k, plot in mmcs_grid_plots.items():
+                cfg.wandb_instance.log({f"mmcs_grid_{chunk_num}/{k}": wandb.Image(plot)}, commit=False)
+        
+        for k, plot in sparsity_hists.items():
+            cfg.wandb_instance.log({f"sparsity_hist_{chunk_num}/{k}": wandb.Image(plot)})
 
 def ensemble_train_loop(ensemble, cfg, args, ensemble_name, sampler, dataset, progress_counter):
     torch.set_grad_enabled(False)
@@ -193,8 +180,8 @@ def ensemble_train_loop(ensemble, cfg, args, ensemble_name, sampler, dataset, pr
 
                 for k in losses.keys():
                     log[f"{ensemble_name}_{name}_{k}"] = losses[k][m].item()
-
-                log[f"{ensemble_name}_{name}_sparsity"] = num_nonzero[m].item()
+                
+                log[f"{ensemble_name}_{name}_num_nonzero"] = num_nonzero[m].item()
 
             run.log(log, commit=True)
 
@@ -248,7 +235,19 @@ def init_model_dataset(cfg):
     if len(os.listdir(cfg.dataset_folder)) == 0:
         print(f"Activations in {cfg.dataset_folder} do not exist, creating them")
         transformer, tokenizer = get_model(cfg)
-        setup_data(cfg, tokenizer, transformer)
+        setup_data(
+            tokenizer,
+            transformer,
+            model_name=cfg.model_name,
+            activation_width=cfg.activation_width,
+            dataset_name=cfg.dataset_name,
+            dataset_folder=cfg.dataset_folder,
+            layer=cfg.layer,
+            use_residual=cfg.use_residual,
+            use_baukit=cfg.use_baukit,
+            n_chunks=cfg.n_chunks,
+            device=cfg.device
+        )
         del transformer, tokenizer
     else:
         print(f"Activations in {cfg.dataset_folder} already exist, loading them")
@@ -334,10 +333,11 @@ def sweep(ensemble_init_func, cfg):
         for ensemble, arg, _ in ensembles:
             learned_dicts.extend(unstacked_to_learned_dicts(ensemble, arg, cfg.ensemble_hyperparams, cfg.buffer_hyperparams))
 
-        log_standard_metrics(learned_dicts, chunk, i, hyperparam_ranges, cfg)
+        if not cfg.wandb_images:
+            log_standard_metrics(learned_dicts, chunk, i, hyperparam_ranges, cfg)
 
         del chunk
-
-        torch.save(learned_dicts, os.path.join(cfg.iter_folder, "learned_dicts.pt"))
+        if i == n_chunks - 1 or i % cfg.save_every == 0:
+            torch.save(learned_dicts, os.path.join(cfg.iter_folder, "learned_dicts.pt"))
 
         print("\n")

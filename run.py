@@ -247,9 +247,9 @@ def cosine_sim(
     return vecs1_norm @ vecs2_norm.T
 
 
-def mean_max_cosine_similarity(ground_truth_features, learned_dictionary, debug=False):
+def mean_max_cosine_similarity(learned_dict_1, learned_dict_2, debug=False):
     # Calculate cosine similarity between all pairs of ground truth and learned features
-    cos_sim = cosine_sim(ground_truth_features, learned_dictionary)
+    cos_sim = cosine_sim(learned_dict_1, learned_dict_2)
     # Find the maximum cosine similarity for each ground truth feature, then average
     mmcs = cos_sim.max(axis=1).mean()
     return mmcs
@@ -301,7 +301,7 @@ def run_single_go(cfg: dotdict, data_generator: Optional[RandomDatasetGenerator]
 
     ground_truth_features = data_generator.feats
     # Train the model
-    optimizer = optim.Adam(auto_encoder.parameters(), lr=cfg.learning_rate)
+    optimizer = optim.Adam(auto_encoder.parameters(), lr=cfg.lr)
 
     # Hold a running average of the reconstruction loss
     running_recon_loss = 0.0
@@ -562,7 +562,7 @@ def run_toy_model(cfg):
 
 
 def run_with_real_data(cfg, auto_encoder: AutoEncoder, completed_batches: int = 0, mini_run: int = 1, n_mini_runs: int = 1):
-    optimizer = optim.Adam(auto_encoder.parameters(), lr=cfg.learning_rate)
+    optimizer = optim.Adam(auto_encoder.parameters(), lr=cfg.lr)
     running_recon_loss = 0.0
     running_l1_loss = 0.0
     feature_activations = np.zeros((cfg.n_components_dictionary))
@@ -779,7 +779,19 @@ def run_real_data_model(cfg: dotdict):
 
     if len(os.listdir(cfg.dataset_folder)) == 0:
         print(f"Activations in {cfg.dataset_folder} do not exist, creating them")
-        n_lines = setup_data(cfg, tokenizer, model, use_baukit=use_baukit)
+        n_lines = setup_data(
+            tokenizer, 
+            model,
+            model_name=cfg.model_name,
+            activation_width=cfg.activation_width,
+            dataset_name=cfg.dataset_name,
+            dataset_folder=cfg.dataset_folder,
+            layer=cfg.layer,
+            use_residual=cfg.use_residual,
+            use_baukit=cfg.use_baukit,
+            n_chunks=cfg.n_chunks,
+            device=cfg.device
+        )
     else:
         print(f"Activations in {cfg.dataset_folder} already exist, loading them")
         # get activation_dim from first file
@@ -930,8 +942,20 @@ def run_real_data_model(cfg: dotdict):
         if cfg.refresh_data:
             print("Remaking dataset")
             os.system(f"rm -rf {cfg.dataset_folder}/*") # delete the old dataset
-            n_new_lines = setup_data(cfg, tokenizer, model, use_baukit, start_line=n_lines)
-            n_lines += n_new_lines
+            n_new_lines = setup_data(
+                tokenizer, 
+                model, 
+                model_name=cfg.model_name,
+                activation_width=cfg.activation_width,
+                dataset_name=cfg.dataset_name,
+                dataset_folder=cfg.dataset_folder,
+                layer=cfg.layer,
+                use_residual=cfg.use_residual,
+                use_baukit=cfg.use_baukit,
+                n_chunks=cfg.n_chunks,
+                device=cfg.device,
+                start_line=n_lines
+            )
 
 
     # clamp dead_features to 0-100 for better visualisation

@@ -11,28 +11,15 @@ from cluster_runs import dispatch_job_on_chunk
 from autoencoders.ensemble import FunctionalEnsemble
 from autoencoders.sae_ensemble import FunctionalSAE, FunctionalTiedSAE
 from autoencoders.semilinear_autoencoder import SemiLinearSAE
-from autoencoders.lista_autoencoder import FunctionalResidualDenoisingSAE
+from autoencoders.residual_denoising_autoencoder import FunctionalLISTADenoisingSAE, FunctionalLISTASAE
 from autoencoders.direct_coef_search import DirectCoefOptimizer
 
-from activation_dataset import setup_data
-from utils import dotdict, make_tensor_name
 from argparser import parse_args
 
 import numpy as np
-from itertools import product, chain
 
-from transformer_lens import HookedTransformer
-
-import wandb
-import datetime
-import pickle
-import json
-import os
-
-import standard_metrics
-from autoencoders.learned_dict import LearnedDict, UntiedSAE, TiedSAE
-
-from optimizers import adam as adam_grouped
+import shutil
+from itertools import product
 
 from big_sweep import sweep
 
@@ -199,31 +186,48 @@ def tied_vs_not_experiment(cfg):
 DICT_RATIO = None
 
 def dense_l1_range_experiment(cfg):
-    l1_values = np.logspace(-4, -2, 32)
-    devices = [f"cuda:{i%torch.cuda.device_count()}" for i in range(8)]
+    l1_values = np.logspace(-4, -2, 16)
+    devices = [f"cuda:{i}" for i in range(8)]
 
     ensembles = []
     for i in range(8):
-        j = i % 4
-        cfgs = l1_values[j*8:(j+1)*8]
-        dict_size = int(cfg.activation_width * DICT_RATIO)
-        models = [
-            FunctionalSAE.init(cfg.activation_width, dict_size, l1_alpha, bias_decay=0.0, dtype=cfg.dtype)
-            for l1_alpha in cfgs
-        ]
+        cfgs = l1_values[i*2:(i+1)*2]
+        dict_size = int(cfg.activation_width * cfg.learned_dict_ratio)
+        if cfg.tied_ae:
+            models = [
+                FunctionalTiedSAE.init(cfg.activation_width, dict_size, l1_alpha, bias_decay=0.0, dtype=cfg.dtype)
+                for l1_alpha in cfgs
+            ]
+        else:
+            models = [
+                FunctionalSAE.init(cfg.activation_width, dict_size, l1_alpha, bias_decay=0.0, dtype=cfg.dtype)
+                for l1_alpha in cfgs
+            ]
+    
+
         device = devices.pop()
-        ensemble = FunctionalEnsemble(
-            models, FunctionalSAE,
-            torchopt.adam, {
-                "lr": cfg.lr
-            },
-            device=device
-        )
+        if cfg.tied_ae:
+            ensemble = FunctionalEnsemble(
+                models, FunctionalTiedSAE,
+                torchopt.adam, {
+                    "lr": cfg.lr
+                },
+                device=device
+            )
+        else:
+            ensemble = FunctionalEnsemble(
+                models, FunctionalSAE,
+                torchopt.adam, {
+                    "lr": cfg.lr
+                },
+                device=device
+            )
         args = {"batch_size": cfg.batch_size, "device": device, "dict_size": dict_size}
         name = f"l1_range_8_{i}"
         ensembles.append((ensemble, args, name))
 
     return (ensembles, ["dict_size"], ["l1_alpha"], {"dict_size": [dict_size], "l1_alpha": l1_values})
+
 
 def residual_denoising_experiment(cfg):
     l1_values = np.logspace(-5, -3, 32)
@@ -235,15 +239,15 @@ def residual_denoising_experiment(cfg):
         cfgs = l1_values[i*4:(i+1)*4]
         dict_size = int(cfg.activation_width * DICT_RATIO)
         models = [
-            FunctionalResidualDenoisingSAE.init(cfg.activation_width, dict_size, 5, l1_alpha, dtype=cfg.dtype)
+            FunctionalLISTADenoisingSAE.init(cfg.activation_width, dict_size, 5, l1_alpha, dtype=cfg.dtype)
             for l1_alpha in cfgs
         ]
         device = devices.pop()
         ensemble = FunctionalEnsemble(
-            models, FunctionalResidualDenoisingSAE,
+            models, FunctionalLISTADenoisingSAE,
             #adam_grouped.Adam, {
             torchopt.adam, {
-                "lr": 3e-4
+                "lr": cfg.lr
             #    "lr_groups": FunctionalResidualDenoisingSAE.init_lr(3, lr=1e-4, lr_encoder=1e-3),
             #    "betas": (0.9, 0.999),
             #    "eps": 1e-8
@@ -283,7 +287,8 @@ def residual_denoising_comparison(cfg):
 
     return (ensembles, ["dict_size"], ["l1_alpha"], {"dict_size": [dict_size], "l1_alpha": l1_values})
 
-if __name__ == "__main__":
+
+def run_resid_denoise():
     cfg = parse_args()
 
     cfg.model_name = "EleutherAI/pythia-70m-deduped"
@@ -295,7 +300,7 @@ if __name__ == "__main__":
     cfg.output_folder = "output_aidan"
     cfg.n_chunks = 10
 
-    cfg.batch_size = 2048
+    cfg.batch_size = 1024
     cfg.gen_batch_size = 4096
     cfg.n_ground_truth_components = 1024
     cfg.activation_width = 512
@@ -303,11 +308,127 @@ if __name__ == "__main__":
     cfg.feature_prob_decay = 0.99
     cfg.feature_num_nonzero = 10
 
-    cfg.lr = 3e-4
+    cfg.lr = 1e-3
     cfg.use_wandb = True
+    cfg.wandb_images = False
     cfg.dtype = torch.float32
 
     for dict_ratio in [4]:
+        global DICT_RATIO
         DICT_RATIO = dict_ratio
         cfg.output_folder = f"output_{dict_ratio}_rd_deep"
         sweep(residual_denoising_experiment, cfg)
+
+    
+def zero_l1_baseline(cfg):
+    l1_values = np.array([0.0, 1e-7, 1e-6, 1e-5])
+    devices = ["cuda:1"]
+
+    ensembles = []
+    cfgs = l1_values
+    dict_size = int(cfg.activation_width * cfg.learned_dict_ratio)
+    if cfg.tied_ae:
+        models = [
+            FunctionalTiedSAE.init(cfg.activation_width, dict_size, l1_alpha, bias_decay=0.0, dtype=cfg.dtype)
+            for l1_alpha in cfgs
+        ]
+    else:
+        models = [
+            FunctionalSAE.init(cfg.activation_width, dict_size, l1_alpha, bias_decay=0.0, dtype=cfg.dtype)
+            for l1_alpha in cfgs
+        ]
+
+    device = devices.pop()
+    if cfg.tied_ae:
+        ensemble = FunctionalEnsemble(
+            models, FunctionalTiedSAE,
+            torchopt.adam, {
+                "lr": cfg.lr
+            },
+            device=device
+        )
+    else:
+        ensemble = FunctionalEnsemble(
+            models, FunctionalSAE,
+            torchopt.adam, {
+                "lr": cfg.lr
+            },
+            device=device
+        )
+    args = {"batch_size": cfg.batch_size, "device": device, "dict_size": dict_size}
+    name = f"l1_range_zero_b"
+    ensembles.append((ensemble, args, name))
+
+    return (ensembles, ["dict_size"], ["l1_alpha"], {"dict_size": [dict_size], "l1_alpha": l1_values})
+
+
+def run_dense_l1_range():
+    cfg = parse_args()
+    cfg.model_name = "EleutherAI/pythia-70m-deduped"
+    cfg.dataset_name = "EleutherAI/pile"
+
+    cfg.batch_size = 2048
+    cfg.activation_width = 512
+
+    cfg.output_folder = f"output_hoagy_dense_sweep{'_tied' if cfg.tied_ae else ''}_{'resid' if cfg.use_residual else 'mlp'}_l{cfg.layer}_r{int(cfg.learned_dict_ratio)}"
+    cfg.dataset_folder = f"pilechunks_l{cfg.layer}_{'mlp' if not cfg.use_residual else 'resid'}"
+    cfg.use_synthetic_dataset = False
+    cfg.dtype = torch.float32
+    cfg.lr = 3e-4
+    cfg.n_chunks=38
+
+    sweep(dense_l1_range_experiment, cfg)
+
+def run_across_layers():
+    cfg = parse_args()
+    cfg.model_name = "EleutherAI/pythia-70m-deduped"
+    cfg.dataset_name = "EleutherAI/pile"
+
+    cfg.batch_size = 2048
+    cfg.use_wandb = False
+    cfg.activation_width = 512
+    cfg.save_every = 5
+    cfg.n_chunks=10
+    cfg.tied_ae=True
+    for layer in [0, 1, 2, 3, 4, 5]:
+        for use_resid in [True, False]:
+            for dict_ratio in [0.5, 1, 2, 4, 8, 16, 32]:
+                cfg.layer = layer
+                cfg.use_residual = use_resid
+                cfg.learned_dict_ratio = dict_ratio
+
+                cfg.output_folder = f"output_hoagy_dense_sweep{'_tied' if cfg.tied_ae else ''}_{'resid' if cfg.use_residual else 'mlp'}_l{cfg.layer}_r{int(cfg.learned_dict_ratio)}"
+                cfg.dataset_folder = f"pilechunks_l{cfg.layer}_{'mlp' if not cfg.use_residual else 'resid'}"
+                cfg.use_synthetic_dataset = False
+                cfg.dtype = torch.float32
+                cfg.lr = 3e-4
+                cfg.n_chunks=30
+
+                sweep(dense_l1_range_experiment, cfg)
+
+            # delete the dataset
+            shutil.rmtree(cfg.dataset_folder)
+
+def run_zero_l1_baseline():
+    cfg = parse_args()
+    cfg.model_name = "EleutherAI/pythia-70m-deduped"
+    cfg.dataset_name = "EleutherAI/pile"
+    cfg.layer=2
+    cfg.use_residual = True
+    cfg.tied_ae = True
+    cfg.dict_ratio=4
+
+    cfg.batch_size = 2048
+    cfg.activation_width = 512
+
+    cfg.output_folder = f"output_zero_b_{cfg.dict_ratio}"
+    cfg.dataset_folder = f"pilechunks_l{cfg.layer}_{'mlp' if not cfg.use_residual else 'resid'}"
+    cfg.use_synthetic_dataset = False
+    cfg.dtype = torch.float32
+    cfg.lr = 3e-4
+    cfg.n_chunks=38
+
+    sweep(zero_l1_baseline, cfg)
+
+if __name__ == "__main__":
+    run_across_layers()

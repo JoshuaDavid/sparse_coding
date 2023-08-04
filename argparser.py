@@ -8,21 +8,19 @@ def parse_args() -> dotdict:
     parser = argparse.ArgumentParser()
     parser.add_argument("--use_wandb", type=lambda x: bool(json.loads(x.lower())), default=True)
     parser.add_argument("--wandb_entity", type=str, default="sparse_coding")
+    parser.add_argument("--wandb_images", type=str, default=False)
     parser.add_argument("--n_ground_truth_components", type=int, default=512)
     parser.add_argument("--learned_dict_ratio", type=float, default=1.0)
-    parser.add_argument("--max_length", type=int, default=256)  # when tokenizing, truncate to this length, basically the context size
     parser.add_argument("--load_autoencoders", type=str, default="")
     parser.add_argument("--activation_dim", type=int, default=256)
-    parser.add_argument("--activation_width", type=int, default=768)
-    parser.add_argument("--chunk_size_gb", type=float, default=2)
 
-    parser.add_argument("--model_batch_size", type=int, default=4)
     parser.add_argument("--batch_size", type=int, default=256)
     parser.add_argument("--noise_std", type=float, default=0.1)
     parser.add_argument("--l1_alpha", type=float, default=0.1)
-    parser.add_argument("--learning_rate", type=float, default=0.001)
+    parser.add_argument("--lr", type=float, default=0.001)
     parser.add_argument("--epochs", type=int, default=1)
     parser.add_argument("--noise_level", type=float, default=0.0)
+    parser.add_argument("--save_every", type=int, default=1) # save every n chunks
 
     parser.add_argument("--feature_prob_decay", type=float, default=0.99)
     parser.add_argument("--feature_num_nonzero", type=int, default=5)
@@ -38,7 +36,7 @@ def parse_args() -> dotdict:
     parser.add_argument("--run_toy", type=lambda x: bool(json.loads(x.lower())), default=False)
     parser.add_argument("--model_name", type=str, default="EleutherAI/pythia-70m-deduped")
     parser.add_argument("--model_path", type=str, default="models/32d70k.pt")
-    parser.add_argument("--dataset_name", type=str, default="NeelNanda/pile-10k")
+    parser.add_argument("--dataset_name", type=str, default="NeelNanda/pile-10k") # EleutherAI/pile
     parser.add_argument("--seed", type=int, default=0)
     parser.add_argument("--layer", type=int, default=2)  # layer to extract mlp-post-non-lin features from, only if using real model
     parser.add_argument("--use_residual", type=lambda x: bool(json.loads(x.lower())), default=False)  # whether to train on residual stream data
@@ -65,8 +63,11 @@ def parse_args() -> dotdict:
     parser.add_argument("--use_decoder", type=lambda x: bool(json.loads(x.lower())), default=True) # whether to use the transposed decoder instead of encoder in a non-tied ae
     parser.add_argument("--df_n_feats", type=int, default=200) # number of features to use in dataframe, if 0 then use all
 
+    parser.add_argument("--device", type=str, default="cuda:0")
     args = parser.parse_args()
     cfg = dotdict(vars(args))  # convert to dotdict via dict
-    cfg.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+    if not torch.cuda.is_available() and cfg.device != "cpu":
+        print("WARNING: CUDA not available, using CPU")
+    cfg.device = torch.device(cfg.device if torch.cuda.is_available() else "cpu")
 
     return cfg

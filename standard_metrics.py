@@ -2,13 +2,15 @@ import asyncio
 import json
 import os
 import pickle
-from typing import List, Tuple, Union, Optional
+from typing import List, Tuple, Union, Optional, Dict, Any
 
 from datasets import load_dataset
 import matplotlib.pyplot as plt
 import matplotlib
 import numpy as np
 from PIL import Image
+from sklearn.cluster import KMeans
+from sklearn.manifold import TSNE
 import torch
 from torchtyping import TensorType
 
@@ -29,6 +31,7 @@ from neuron_explainer.activations.activations import ActivationRecord
 from autoencoders.learned_dict import LearnedDict
 
 import utils
+from activation_dataset import setup_data
 
 from sklearn.linear_model import LogisticRegression, Ridge, RidgeClassifier
 from sklearn import metrics
@@ -41,7 +44,7 @@ MAX_CONCURRENT = 5
 REPLACEMENT_CHAR = "�"
 TRUE_THRESHOLD = 2
 
-_batch_size, _activation_size, _n_dict_components, _fragment_len, _n_sentences = None, None, None, None, None
+_batch_size, _activation_size, _n_dict_components, _fragment_len, _n_sentences, _n_dicts = None, None, None, None, None, None
 
 async def get_synthetic_dataset(
         explanation: str, 
@@ -197,11 +200,26 @@ def measure_concept_erasure(
     # not sure what summary to use here?
     return 1 - (auroc_ablated - 0.5) / (auroc_true - 0.5), auroc_true, auroc_ablated
 
-def mcs_duplicates(ground: LearnedDict, model: LearnedDict):
+def mcs_duplicates(ground: LearnedDict, model: LearnedDict) -> TensorType["_n_dict_components"]:
     # get max cosine sim between each model atom and all ground atoms
     cosine_sim = torch.einsum("md,gd->mg", model.get_learned_dict(), ground.get_learned_dict())
     max_cosine_sim = cosine_sim.max(dim=-1).values
     return max_cosine_sim
+
+def mmcs(model: LearnedDict, model2: LearnedDict) -> float:
+    return mcs_duplicates(model, model2).mean().item()
+
+def mmcs_from_list(ld_list: List[LearnedDict]) -> TensorType["_n_dicts", "_n_dicts"]:
+    """
+    Returns a lower triangular matrix of mmcs between all pairs of dicts in the list.
+    """
+    n_dicts = len(ld_list)
+    mmcs_t = torch.eye(n_dicts)
+    for i in range(n_dicts):
+        for j in range(i):
+            mmcs_t[i, j] = mmcs(ld_list[i], ld_list[j])
+            mmcs_t[j, i] = mmcs_t[i, j]
+    return mmcs_t
 
 def mean_nonzero_activations(model: LearnedDict, batch: TensorType["_batch_size", "_activation_size"]):
     c = model.encode(batch)
@@ -215,6 +233,13 @@ def fraction_variance_unexplained(model: LearnedDict, batch: TensorType["_batch_
 
 def r_squared(model: LearnedDict, batch: TensorType["_batch_size", "_activation_size"]):
     return 1.0 - fraction_variance_unexplained(model, batch)
+
+def neurons_per_feature(model: LearnedDict) -> float:
+    """ Gets the average numbrer of neurons attended to per learned feature, as measured by the Simpson diversity index."""
+    c: TensorType["_n_dict_components", "_activation_size"] = model.get_learned_dict()
+    c = c / c.abs().sum(dim=-1, keepdim=True)
+    c = c.pow(2).sum(dim=-1)
+    return (1.0 / c).mean()
 
 def plot_hist(scores: TensorType["_n_dict_components"], x_label, y_label, **kwargs):
     fig = plt.figure()
@@ -246,6 +271,38 @@ def plot_scatter(scores_x: TensorType["_n_dict_components"], scores_y: TensorTyp
 
     return Image.fromarray(data, mode="RGB")
 
+def calc_feature_n_active(batch):
+    # batch: [batch_size, n_features]
+    n_active = torch.sum(batch != 0, dim=0)
+    return n_active
+
+def calc_feature_mean(batch):
+    # batch: [batch_size, n_features]
+    mean = torch.mean(batch, dim=0)
+    return mean
+
+def calc_feature_variance(batch):
+    # batch: [batch_size, n_features]
+    variance = torch.var(batch, dim=0)
+    return variance
+
+# weird asymmetric kurtosis/skew with center at 0
+def calc_feature_skew(batch):
+    # batch: [batch_size, n_features]
+    variance = torch.var(batch, dim=0)
+    asymm_skew = torch.mean(batch**3, dim=0) / torch.clamp(variance**1.5, min=1e-8)
+
+    return asymm_skew
+
+def calc_feature_kurtosis(batch):
+    # batch: [batch_size, n_features]
+    variance = torch.var(batch, dim=0)
+    asymm_kurtosis = torch.mean(batch**4, dim=0) / torch.clamp(variance**2, min=1e-8)
+
+    return asymm_kurtosis
+
+ 
+
 def plot_grid(scores: np.ndarray, first_tick_labels, second_tick_labels, first_label, second_label, **kwargs):
     fig = plt.figure()
     ax = fig.add_subplot(111)
@@ -275,9 +332,44 @@ def process_scored_simulation(simulation: ScoredSimulation, tokenizer: HookedTra
         assert len(tokens[i]) == len(sim_activations[i]) 
     return token_strs, sim_activations, tokens
 
-if __name__ == "__main__":
+
+def cluster_vectors(model: LearnedDict, n_clusters: int = 1000, top_clusters: int = 10, save_loc: str = "outputs/top_clusters.txt"):
+    # take the direction vectors and cluster them
+    # get the direction vectors
+    direction_vectors: TensorType["_n_dict_components", "_activation_size"] = model.get_learned_dict()
+
+    # first apply t-SNE to reduce dimensionality
+    tsne = TSNE(n_components=2, random_state=0)
+    direction_vectors_tsne = tsne.fit_transform(direction_vectors)
+
+    # now we're going to cluster the direction vectors
+    # first, we'll try k-means
+    print("Clustering vectors using kmeans")
+    kmeans = KMeans(n_clusters=n_clusters, random_state=0).fit(direction_vectors_tsne)
+    # now get the clusters which have the most points in them and get the ids of the points in those clusters
+    cluster_ids, cluster_counts = np.unique(kmeans.labels_, return_counts=True)
+    cluster_ids = cluster_ids[np.argsort(cluster_counts)[::-1]]
+    cluster_counts = cluster_counts[np.argsort(cluster_counts)[::-1]]   
+    # now get the ids of the points in the top 10 clusters
+    top_cluster_ids = cluster_ids[:top_clusters]
+    top_cluster_points = []
+    for cluster_id in top_cluster_ids:
+        top_cluster_points.append(np.where(kmeans.labels_ == cluster_id)[0])
+
+    # save clusters as separate lines on a text file
+    with open(save_loc, "w") as f:
+        for cluster in top_cluster_points:
+            f.write(f"{list(cluster)}\n")
+
+    # now want to take a selection of points, and find the nearest neighbours to them
+    # first, take a random selection of points
+    # n_points = 10
+    # random_points = np.random.choice(direction_vectors_tsne.shape[0], n_points, replace=False)
+    # # now find the nearest neighbours to these points
+    # nbrs = NearestNeighbors(n_neighbors=5, algorithm='ball_tree').fit(direction_vectors_tsne)
+
+def measure_ablation_score() -> None:    
     from argparser import parse_args
-    
     cfg = parse_args()
 
     cfg.layer = 1
@@ -345,3 +437,45 @@ if __name__ == "__main__":
     # r_sq = fraction_variance_unexplained(model, activations.reshape(-1, activations.shape[-1])).item()
 
     print(erasure_score, true, ablated)
+
+def make_one_chunk_per_layer() -> None:
+    device = torch.device("cuda:1")
+    model_name = "EleutherAI/pythia-70m-deduped"
+    model = HookedTransformer.from_pretrained(model_name, device=device)
+    tokenizer = model.tokenizer
+
+    for use_residual in [False, True]:
+        activation_width = 512 if use_residual else 2048
+        for layer in range(6):
+            setup_data(
+                tokenizer,
+                model,
+                model_name=model_name,
+                activation_width=activation_width,
+                dataset_name="EleutherAI/pile",
+                dataset_folder=f"single_chunks/l{layer}_{'resid' if use_residual else 'mlp'}",
+                layer=layer,
+                use_residual=use_residual,
+                use_baukit=False,
+                n_chunks=1,
+                device=device,
+            )
+
+if __name__ == "__main__":
+    make_one_chunk_per_layer()
+
+    # ld_loc = "output_hoagy_dense_sweep_tied_resid_l2_r4/_38/learned_dicts.pt"
+    # learned_dicts: List[Tuple[LearnedDict, Dict[str, Any]]] = torch.load(ld_loc)
+    # activations_loc = "pilechunks_l2_resid/0.pt"
+    # activations = torch.load(activations_loc).to(torch.float32)
+
+    # for learned_dict, hparams in learned_dicts:
+    #     feat_activations = learned_dict.encode(activations)
+    #     means = calc_feature_mean(activations)
+
+
+
+    # for learned_dict, hparams in learned_dicts:
+    #     neurons_per_feat = neurons_per_feature(learned_dict)
+    #     l1_value = hparams["l1_alpha"]
+    #     print(f"l1: {l1_value}, neurons per feat: {neurons_per_feat}")
