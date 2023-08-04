@@ -227,10 +227,10 @@ def dense_l1_range_experiment(cfg):
 
 def residual_denoising_experiment(cfg):
     l1_values = np.logspace(-5, -3, 32)
-    devices = [f"cuda:{i%torch.cuda.device_count()}" for i in range(8)]
+    devices = [f"cuda:{i}" for i in range(torch.cuda.device_count())]
 
     ensembles = []
-    for i in range(8):
+    for i in range(torch.cuda.device_count()):
         #print(f"cuda:{i}", torch.cuda.memory_reserved(i) - torch.cuda.memory_allocated(i))
         cfgs = l1_values[i*4:(i+1)*4]
         dict_size = int(cfg.activation_width * DICT_RATIO)
