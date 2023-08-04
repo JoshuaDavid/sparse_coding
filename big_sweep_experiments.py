@@ -187,11 +187,12 @@ DICT_RATIO = None
 
 def dense_l1_range_experiment(cfg):
     l1_values = np.logspace(-4, -2, 16)
-    devices = [f"cuda:{i}" for i in range(8)]
+    devices = [f"cuda:{i}" for i in range(torch.cuda.device_count())]
 
     ensembles = []
-    for i in range(8):
-        cfgs = l1_values[i*2:(i+1)*2]
+    for i in range(torch.cuda.device_count()):
+        n_per_device = math.ceil(len(l1_values) / torch.cuda.device_count())
+        cfgs = l1_values[i*n_per_device:(i+1)*n_per_device]
         dict_size = int(cfg.activation_width * cfg.learned_dict_ratio)
         if cfg.tied_ae:
             models = [
@@ -205,7 +206,7 @@ def dense_l1_range_experiment(cfg):
             ]
     
 
-        device = devices.pop()
+        device = devices[i%torch.cuda.device_count()]
         if cfg.tied_ae:
             ensemble = FunctionalEnsemble(
                 models, FunctionalTiedSAE,
