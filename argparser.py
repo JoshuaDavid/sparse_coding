@@ -5,6 +5,7 @@ from utils import dotdict
 
 def parse_args() -> dotdict:
     parser = argparse.ArgumentParser()
+    parser.add_argument("--use_wandb", type=bool, default=True)
     parser.add_argument("--wandb_entity", type=str, default="sparse_coding")
     parser.add_argument("--wandb_images", type=str, default=False)
     parser.add_argument("--n_ground_truth_components", type=int, default=512)
