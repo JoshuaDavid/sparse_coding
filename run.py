@@ -32,7 +32,6 @@ import wandb
 
 from activation_dataset import setup_data
 from argparser import parse_args
-from autoencoders.tied_ae import AutoEncoder
 from nanoGPT_model import GPT
 from utils import *
 
@@ -205,30 +204,30 @@ def generate_corr_matrix(num_feats: int, device: Union[torch.device, str]) -> Te
 
 
 # AutoEncoder Definition
-# class AutoEncoder(nn.Module):
-#     def __init__(self, activation_size, n_dict_components, t_type=torch.float32, l1_coef=0.0):
-#         super(AutoEncoder, self).__init__()
-#         self.decoder = nn.Linear(n_dict_components, activation_size, bias=False)
-#         # Initialize the decoder weights orthogonally
-#         nn.init.orthogonal_(self.decoder.weight)
-#         self.decoder = self.decoder.to(t_type)
-# 
-#         self.encoder = nn.Sequential(nn.Linear(activation_size, n_dict_components).to(t_type), nn.ReLU())
-#         self.l1_coef = l1_coef
-#         self.activation_size = activation_size
-#         self.n_dict_components = n_dict_components
-# 
-#     def forward(self, x):
-#         c = self.encoder(x)
-#         # Apply unit norm constraint to the decoder weights
-#         self.decoder.weight.data = nn.functional.normalize(self.decoder.weight.data, dim=0)
-# 
-#         x_hat = self.decoder(c)
-#         return x_hat, c
-# 
-#     @property
-#     def device(self):
-#         return next(self.parameters()).device
+class AutoEncoder(nn.Module):
+    def __init__(self, activation_size, n_dict_components, t_type=torch.float32, l1_coef=0.0):
+        super(AutoEncoder, self).__init__()
+        self.decoder = nn.Linear(n_dict_components, activation_size, bias=False)
+        # Initialize the decoder weights orthogonally
+        nn.init.orthogonal_(self.decoder.weight)
+        self.decoder = self.decoder.to(t_type)
+
+        self.encoder = nn.Sequential(nn.Linear(activation_size, n_dict_components).to(t_type), nn.ReLU())
+        self.l1_coef = l1_coef
+        self.activation_size = activation_size
+        self.n_dict_components = n_dict_components
+
+    def forward(self, x):
+        c = self.encoder(x)
+        # Apply unit norm constraint to the decoder weights
+        self.decoder.weight.data = nn.functional.normalize(self.decoder.weight.data, dim=0)
+
+        x_hat = self.decoder(c)
+        return x_hat, c
+
+    @property
+    def device(self):
+        return next(self.parameters()).device
 
 
 def cosine_sim(
@@ -481,7 +480,7 @@ def run_toy_model(cfg):
         secrets = json.load(open("secrets.json"))
         wandb.login(key=secrets["wandb_key"])
         wandb_run_name = f"{cfg.model_name}_{start_time[4:]}"  # trim year
-        wandb.init(project="sparse coding", config=dict(cfg), name=wandb_run_name, entity=cfg.wandb_entity)
+        wandb.init(project="sparse coding", config=dict(cfg), name=wandb_run_name, entity="sparse_coding")
 
     
     # Using a single data generator for all runs so that can compare learned dicts
@@ -580,31 +579,11 @@ def run_with_real_data(cfg, auto_encoder: AutoEncoder, completed_batches: int = 
     for epoch in range(cfg.epochs):
         chunk_order = np.random.permutation(n_chunks_in_folder)
         for chunk_ndx, chunk_id in enumerate(chunk_order):
-            chunk_loc = os.path.join(cfg.dataset_folder, f"{chunk_id}")
-            chunk_type = None
-            if os.path.isfile(f'{chunk_loc}.pkl'):
-                dataset = DataLoader(
-                        pickle.load(open(f'{chunk_loc}.pkl', "rb")),
-                        batch_size=cfg.batch_size,
-                        shuffle=True
-                )
-                chunk_type = 'pkl'
-            elif os.path.isfile(f'{chunk_loc}.pt'):
-                dataset = DataLoader(torch.load(f'{chunk_loc}.pt'))
-                dataset = DataLoader(
-                        torch.load(f'{chunk_loc}.pt').to(device="cpu", dtype=torch.float32),
-                        batch_size=cfg.batch_size,
-                        shuffle=True
-                )
-                chunk_type = 'pt'
-            else:
-                raise Exception(f"Failed to find chunk of type .pt or .pkl at {chunk_loc}");
+            chunk_loc = os.path.join(cfg.dataset_folder, f"{chunk_id}.pkl")
+            dataset = DataLoader(pickle.load(open(chunk_loc, "rb")), batch_size=cfg.batch_size, shuffle=True)
             for batch_idx, batch in enumerate(dataset):
                 n_batches += 1
-                if chunk_type == 'pkl':
-                    batch = batch[0].to(cfg.device).to(torch.float32)
-                else:
-                    batch = batch.to(cfg.device).to(torch.float32)
+                batch = batch[0].to(cfg.device).to(torch.float32)
                 optimizer.zero_grad()
                 # Run through auto_encoder
 
@@ -743,7 +722,6 @@ def get_size_of_momentum(cfg: dotdict, optimizer: torch.optim.Optimizer):
     """
     adam_momentum_tensor = optimizer.state_dict()["state"][0]["exp_avg"]
     decoder_shape = cfg.activation_dim, cfg.n_components_dictionary  # decoder is Linear(n_components, activation_dim) so tensor is stored as (activation_dim, n_components)
-    print(adam_momentum_tensor.shape, decoder_shape, cfg.activation_width)
     assert adam_momentum_tensor.shape == decoder_shape
     return adam_momentum_tensor.detach().abs().sum().item()  # sum of absolute values of all elements
 
@@ -795,15 +773,9 @@ def run_real_data_model(cfg: dotdict):
     else:
         print(f"Activations in {cfg.dataset_folder} already exist, loading them")
         # get activation_dim from first file
-        chunk_path_base = os.path.join(cfg.dataset_folder, "0")
-        if os.path.isfile(f'{chunk_path_base}.pkl'):
-            with open(f'{chunk_path_base}.pkl', "rb") as f:
-                dataset = pickle.load(f)
-                cfg.activation_dim = dataset.tensors[0][0].shape[-1]
-        elif os.path.isfile(f'{chunk_path_base}.pt'):
-            dataset = torch.load(f'{chunk_path_base}.pt').to(device="cpu", dtype=torch.float32)
-            print(f"Loaded dataset from .pt, shape={dataset.shape}")
-            cfg.activation_dim = dataset.shape[-1]
+        with open(os.path.join(cfg.dataset_folder, "0.pkl"), "rb") as f:
+            dataset = pickle.load(f)
+        cfg.activation_dim = dataset.tensors[0][0].shape[-1]
         n_lines = cfg.max_lines
         del dataset
 
@@ -855,7 +827,7 @@ def run_real_data_model(cfg: dotdict):
             l1_loss = l1_range[l1_ndx]
             dict_size = dict_sizes[dict_size_ndx]
             if cfg.use_wandb:
-                wandb.init(project="sparse coding", config=dict(cfg), group=wandb_run_name, name=f"l1={l1_loss:.0E}_dict={dict_size}" ,entity=cfg.wandb_entity)
+                wandb.init(project="sparse coding", config=dict(cfg), group=wandb_run_name, name=f"l1={l1_loss:.0E}_dict={dict_size}" ,entity="sparse_coding")
 
             cfg.l1_alpha = l1_loss
             cfg.n_components_dictionary = dict_size
@@ -873,7 +845,7 @@ def run_real_data_model(cfg: dotdict):
             if cfg.use_wandb:
                 wandb.finish()
         if cfg.use_wandb:
-            wandb.init(project="sparse coding", config=dict(cfg), group=wandb_run_name+"_graphs", name=f"mini_run:{mini_run}", entity=cfg.wandb_entity)
+            wandb.init(project="sparse coding", config=dict(cfg), group=wandb_run_name+"_graphs", name=f"mini_run:{mini_run}", entity="sparse_coding")
 
         # run MMCS-with-larger at the end of each mini run
         learned_dicts = [[auto_e.decoder.weight.detach().cpu().data.t() for auto_e in l1] for l1 in auto_encoders]
