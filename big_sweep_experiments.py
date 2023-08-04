@@ -387,6 +387,7 @@ def run_across_layers():
 
     cfg.batch_size = 2048
     cfg.use_wandb = False
+    cfg.use_baukit = True
     cfg.activation_width = 512
     cfg.save_every = 5
     cfg.n_chunks=10
