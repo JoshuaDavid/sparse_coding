@@ -390,9 +390,9 @@ def run_across_layers():
     cfg.save_every = 5
     cfg.n_chunks=10
     cfg.tied_ae=True
-    for layer in [0, 1, 2, 3, 4, 5]:
-        for use_resid in [True, False]:
-            for dict_ratio in [0.5, 1, 2, 4, 8, 16, 32]:
+    for layer in [2]:
+        for use_resid in [True]:
+            for dict_ratio in [0.5, 1, 2, 4]:
                 cfg.layer = layer
                 cfg.use_residual = use_resid
                 cfg.learned_dict_ratio = dict_ratio
