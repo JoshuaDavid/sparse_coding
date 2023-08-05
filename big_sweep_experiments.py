@@ -187,7 +187,7 @@ def tied_vs_not_experiment(cfg):
 DICT_RATIO = None
 
 def dense_l1_range_experiment(cfg):
-    l1_values = np.logspace(-4, -2, 16)
+    l1_values = np.array([1e-4, 2e-4, 5e-4, 1e-3, 2e-3, 5e-3, 1e-2])
     devices = [f"cuda:{i}" for i in range(torch.cuda.device_count())]
 
     ensembles = []
@@ -393,9 +393,9 @@ def run_across_layers():
     cfg.save_every = 5
     cfg.n_chunks=10
     cfg.tied_ae=True
-    for layer in [2]:
+    for layer in [0, 1, 2, 3, 4, 5]:
         for use_resid in [True]:
-            for dict_ratio in [0.5, 1, 2, 4]:
+            for dict_ratio in [1, 2, 4, 8]:
                 cfg.layer = layer
                 cfg.use_residual = use_resid
                 cfg.learned_dict_ratio = dict_ratio
