@@ -544,9 +544,15 @@ def run_across_layers_mlp_untied():
     cfg.use_wandb = False
     cfg.save_every = 2
     cfg.tied_ae=False
-    for layer in [0, 1, 2, 3, 4, 5]:
-        layer_loc = "mlp"
-        for dict_ratio in [1, 2, 4, 8]:
+    for layer in [3]:
+        layer_loc = "residual"
+        if layer_loc == 'mlp':
+            cfg.activation_width = 2048
+        elif layer_loc == 'residual':
+            cfg.activation_width = 512
+        else:
+            raise Exception(f"Unknown layer_loc {layer_loc}")
+        for dict_ratio in [2]:
             cfg.layer = layer
             cfg.layer_loc = layer_loc
             cfg.learned_dict_ratio = dict_ratio
