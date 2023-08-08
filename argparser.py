@@ -11,7 +11,7 @@ def parse_args() -> dotdict:
     parser.add_argument("--n_ground_truth_components", type=int, default=512)
     parser.add_argument("--learned_dict_ratio", type=float, default=1.0)
     parser.add_argument("--load_autoencoders", type=str, default="")
-    parser.add_argument("--activation_dim", type=int, default=256)
+    parser.add_argument("--toy_activation_dim", type=int, default=256)
 
     parser.add_argument("--batch_size", type=int, default=256)
     parser.add_argument("--noise_std", type=float, default=0.1)
@@ -38,8 +38,7 @@ def parse_args() -> dotdict:
     parser.add_argument("--dataset_name", type=str, default="NeelNanda/pile-10k") # EleutherAI/pile
     parser.add_argument("--seed", type=int, default=0)
     parser.add_argument("--layer", type=int, default=2)  # layer to extract mlp-post-non-lin features from, only if using real model
-    parser.add_argument("--use_residual", type=bool, default=False)  # whether to train on residual stream data
-
+    parser.add_argument("--layer_loc", type=str, default="residual")  # which part of the layer to extract features from, ["resid", "attn", "mlp", "mlp_out"]
     parser.add_argument("--outputs_folder", type=str, default="outputs")
     parser.add_argument("--datasets_folder", type=str, default="activation_data")
     parser.add_argument("--n_chunks", type=int, default=30)
@@ -48,9 +47,11 @@ def parse_args() -> dotdict:
     parser.add_argument("--mini_runs", type=int, default=1)  # How many times to run the inner loop, each time with a different random subset o f the data
     parser.add_argument("--save_after_mini", type=bool, default=False)  # Whether to save the model after each mini run
     parser.add_argument("--upload_to_aws", type=bool, default=False)  # Whether to upload the model to aws after each mini run
+    parser.add_argument("--n_repetitions", type=int, default=1)  # How many times to repeat the whole process
 
     parser.add_argument("--refresh_data", type=bool, default=False)  # Whether to remake the dataset after each mini run
     parser.add_argument("--max_lines", type=int, default=100000)  # How many lines to read from the dataset
+
     # interpret
     parser.add_argument("--load_activation_dataset", type=bool, default=True) # path to dataset to load
     parser.add_argument("--n_feats_explain", type=int, default=10) # number of features to explain
@@ -61,6 +62,7 @@ def parse_args() -> dotdict:
     parser.add_argument("--sort_mode", type=str, default="max") # how to sort fragments, either max, mean
     parser.add_argument("--use_decoder", type=bool, default=True) # whether to use the transposed decoder instead of encoder in a non-tied ae
     parser.add_argument("--df_n_feats", type=int, default=200) # number of features to use in dataframe, if 0 then use all
+    parser.add_argument("--top_k_pca", type=int, default=50) # enforced max active pca components
 
     parser.add_argument("--device", type=str, default="cuda:0")
     args = parser.parse_args()

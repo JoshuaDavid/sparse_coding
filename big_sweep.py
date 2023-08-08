@@ -4,18 +4,10 @@ import torch.nn.functional as F
 import torch.multiprocessing as mp
 import torch.utils.data as data
 
-import torchopt
 
 from cluster_runs import dispatch_job_on_chunk
-
-from autoencoders.ensemble import FunctionalEnsemble
-from autoencoders.sae_ensemble import FunctionalSAE, FunctionalTiedSAE
-from autoencoders.semilinear_autoencoder import SemiLinearSAE
-
 from activation_dataset import setup_data
 from sc_datasets.random_dataset import SparseMixDataset
-from utils import dotdict, make_tensor_name
-from argparser import parse_args
 
 import numpy as np
 from itertools import product, chain
@@ -30,6 +22,7 @@ import datetime
 import pickle
 import json
 import os
+import sys
 
 import standard_metrics
 from autoencoders.learned_dict import LearnedDict, UntiedSAE, TiedSAE
@@ -224,14 +217,14 @@ def generate_synthetic_dataset(cfg, generator, chunk_size, n_chunks):
         torch.save(chunk, os.path.join(cfg.dataset_folder, f"{i}.pt"))
 
 def init_model_dataset(cfg):
-    if cfg.use_residual:
+    if cfg.layer_loc =="mlp":
+        cfg.activation_width = 2048
+    else:
         if cfg.model_name == "EleutherAI/pythia-160m-deduped":
             cfg.activation_width = 768
         else:
             cfg.activation_width = 512
-    else:
-        cfg.activation_width = 2048 # mlp_width is 4x the residual width
-    
+
     if len(os.listdir(cfg.dataset_folder)) == 0:
         print(f"Activations in {cfg.dataset_folder} do not exist, creating them")
         transformer, tokenizer = get_model(cfg)
@@ -239,12 +232,10 @@ def init_model_dataset(cfg):
             tokenizer,
             transformer,
             model_name=cfg.model_name,
-            activation_width=cfg.activation_width,
             dataset_name=cfg.dataset_name,
             dataset_folder=cfg.dataset_folder,
             layer=cfg.layer,
-            use_residual=cfg.use_residual,
-            use_baukit=cfg.use_baukit,
+            layer_loc=cfg.layer_loc,
             n_chunks=cfg.n_chunks,
             device=cfg.device
         )
@@ -263,8 +254,12 @@ def init_synthetic_dataset(cfg):
             cfg.feature_prob_decay,
             cfg.noise_magnitude_scale,
             "cuda:0",
+            sparse_component_covariance = None if cfg.correlated_components else torch.eye(cfg.n_ground_truth_components, device="cuda:0"),
             t_type=torch.float16
         )
+
+        print("generated dataset")
+
         chunk_size = cfg.chunk_size_gb * 1024**3
         chunk_activations = chunk_size // (cfg.activation_width * 2)
         generate_synthetic_dataset(cfg, generator, chunk_activations, cfg.n_chunks)
@@ -275,6 +270,10 @@ def init_synthetic_dataset(cfg):
         print(f"Activations in {cfg.dataset_folder} already exist, loading them")
 
 def sweep(ensemble_init_func, cfg):
+    if not sys.warnoptions:
+        import warnings
+        warnings.simplefilter('ignore')
+    
     torch.set_grad_enabled(False)
     with torch.no_grad():
         torch.cuda.empty_cache()
@@ -314,7 +313,11 @@ def sweep(ensemble_init_func, cfg):
     print("Ensembles initialised.")
 
     n_chunks = len(os.listdir(cfg.dataset_folder))
+
     chunk_order = np.random.permutation(n_chunks)
+
+    if cfg.n_repetitions is not None:
+        chunk_order = np.tile(chunk_order, cfg.n_repetitions)
 
     for i, chunk_idx in enumerate(chunk_order):
         print(f"Chunk {i+1}/{n_chunks}")
@@ -333,7 +336,7 @@ def sweep(ensemble_init_func, cfg):
         for ensemble, arg, _ in ensembles:
             learned_dicts.extend(unstacked_to_learned_dicts(ensemble, arg, cfg.ensemble_hyperparams, cfg.buffer_hyperparams))
 
-        if not cfg.wandb_images:
+        if cfg.wandb_images:
             log_standard_metrics(learned_dicts, chunk, i, hyperparam_ranges, cfg)
 
         del chunk
