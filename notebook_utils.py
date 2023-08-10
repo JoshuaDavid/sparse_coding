@@ -32,7 +32,7 @@ def load_autoencoders(desired_hyperparams, hyperparams_by_path):
                     ))
     return located_autoencoders
 
-def get_feature_datapoints(feature_index, n_datapoints, dictionary_activations, dataset, k=10, setting="max"):
+def get_feature_datapoints(feature_index, n_datapoints, token_amount, dictionary_activations, dataset, k=10, setting="max"):
     best_feature_activations = dictionary_activations[:, feature_index]
     # Sort the features by activation, get the indices
     if setting=="max":
