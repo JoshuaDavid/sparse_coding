@@ -1,4 +1,5 @@
 import torch
+import numpy as np
 from dataclasses import dataclass
 from circuitsvis.activations import text_neuron_activations
 from einops import rearrange
