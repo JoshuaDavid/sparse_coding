@@ -32,7 +32,7 @@ def load_autoencoders(desired_hyperparams, hyperparams_by_path):
                     ))
     return located_autoencoders
 
-def get_feature_datapoints(feature_index, dictionary_activations, dataset, k=10, setting="max"):
+def get_feature_datapoints(feature_index, n_datapoints, dictionary_activations, dataset, k=10, setting="max"):
     best_feature_activations = dictionary_activations[:, feature_index]
     # Sort the features by activation, get the indices
     if setting=="max":
@@ -69,7 +69,7 @@ def get_feature_datapoints(feature_index, dictionary_activations, dataset, k=10,
         # shuffle
         shuffled_indices = nonzero_indices[torch.randperm(nonzero_indices.shape[0])]
         found_indices = shuffled_indices[:k]
-    datapoint_indices =[np.unravel_index(i, (datapoints, token_amount)) for i in found_indices]
+    datapoint_indices =[np.unravel_index(i, (n_datapoints, token_amount)) for i in found_indices]
     text_list = []
     full_text = []
     token_list = []
