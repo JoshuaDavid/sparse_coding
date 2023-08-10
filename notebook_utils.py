@@ -177,10 +177,8 @@ def ablate_feature_direction(tokens, feature, model, cache_name, autoencoder):
     )
 
 def visualize_logit_diff(text, autoencoder, cache_name, features=None, setting="true_tokens", verbose=False):
-    features = best_feature
-
     if features==None:
-        features = torch.tensor([best_feature])
+        raise Exception("Cannot visualize feature None")
     if isinstance(features, int):
         features = torch.tensor([features])
     if isinstance(features, list):
