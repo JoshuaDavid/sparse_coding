@@ -176,7 +176,7 @@ def ablate_feature_direction(tokens, feature, model, cache_name, autoencoder):
         )]
     )
 
-def visualize_logit_diff(text, autoencoder, cache_name, features=None, setting="true_tokens", verbose=False):
+def visualize_logit_diff(text, model, autoencoder, cache_name, features=None, setting="true_tokens", verbose=False):
     if features==None:
         raise Exception("Cannot visualize feature None")
     if isinstance(features, int):
