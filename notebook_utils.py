@@ -31,12 +31,6 @@ def load_autoencoders(desired_hyperparams, hyperparams_by_path):
                     ))
     return located_autoencoders
 
-def hyperparams_match(matchers, hyperparams):
-    for k in set(hyperparams.keys()).intersection(matchers.keys()):
-        if not matchers[k](hyperparams[k]):
-            return False
-    return True
-
 def get_feature_datapoints(feature_index, dictionary_activations, dataset, k=10, setting="max"):
     best_feature_activations = dictionary_activations[:, feature_index]
     # Sort the features by activation, get the indices
@@ -122,7 +116,7 @@ def ablate_text(text, feature, autoencoder, model, cache_name, setting="plot"):
         if(seq_size == 1): # If the text is a single token, we can't ablate it
             continue
         original = get_neuron_activation(tokens, feature, autoencoder, model, cache_name)[-1]
-        changed_activations = torch.zeros(seq_size, device=device).cpu()
+        changed_activations = torch.zeros(seq_size, device=model.cfg.device).cpu()
         for i in range(seq_size):
             # Remove the i'th token from the input
             ablated_tokens = torch.cat((tokens[:,:i], tokens[:,i+1:]), dim=1)
