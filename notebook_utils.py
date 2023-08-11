@@ -38,7 +38,7 @@ def get_dictionary_activations(model, autoencoder, dataset, cache_name, token_am
     d_dict, d_model = learned_dict.shape
     dictionary_activations = torch.zeros((dataset.num_rows*token_amount, d_dict))
     with torch.no_grad(), dataset.formatted_as('pt'):
-        dl = Dataloader(dataset['input_ids'], batch_size=batch_size)
+        dl = DataLoader(dataset['input_ids'], batch_size=batch_size)
         for i, batch in enumerate(dl):
             _, cache = model.run_with_cache(batch.to(device))
             batched_cache_acts = rearrange(cache[cache_name], 'b s n -> (b s) n')
