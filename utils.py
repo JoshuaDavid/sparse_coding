@@ -116,7 +116,7 @@ def check_use_baukit(model_name):
 def get_activation_size(model_name: str, layer_loc: str):
     if model_name == "EleutherAI/pythia-70m-deduped":
         residual_dim = 512
-    elif model_name in ["EleutherAI/pythia-160m-deduped", "gpt2"]:
+    elif model_name in ["EleutherAI/pythia-160m-deduped", "gpt2", "roneneldan/TinyStories-33M"]:
         residual_dim = 768
     elif model_name == "nanoGPT":
         residual_dim = 32
