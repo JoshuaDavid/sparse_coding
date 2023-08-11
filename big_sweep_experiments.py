@@ -569,6 +569,40 @@ def run_across_layers_mlp_untied():
         # delete the dataset
         shutil.rmtree(cfg.dataset_folder)
 
+def run_across_layers_resid_untied_tinystories():
+    cfg = parse_args()
+    cfg.model_name = "roneneldan/TinyStories-33M"
+    cfg.dataset_name = "roneneldan/TinyStories"
+
+    cfg.batch_size = 2048
+    cfg.use_wandb = False
+    cfg.save_every = 2
+    cfg.tied_ae=False
+    for layer in [0]:
+        layer_loc = "residual"
+        if layer_loc == 'mlp':
+            cfg.activation_width = 3072
+        elif layer_loc == 'residual':
+            cfg.activation_width = 768
+        else:
+            raise Exception(f"Unknown layer_loc {layer_loc}")
+        for dict_ratio in [2]:
+            cfg.layer = layer
+            cfg.layer_loc = layer_loc
+            cfg.learned_dict_ratio = dict_ratio
+
+            cfg.output_folder = f"output_tinystories_sweep{'_tied' if cfg.tied_ae else ''}_{cfg.layer_loc}_l{cfg.layer}_r{int(cfg.learned_dict_ratio)}"
+            cfg.dataset_folder = f"tinystories_chunks_l{cfg.layer}_{cfg.layer_loc}"
+            cfg.use_synthetic_dataset = False
+            cfg.dtype = torch.float32
+            cfg.lr = 3e-4
+            cfg.n_chunks=10
+
+            sweep(dense_l1_range_experiment, cfg)
+
+        # delete the dataset
+        shutil.rmtree(cfg.dataset_folder)
+
 def run_zero_l1_baseline():
     cfg = parse_args()
     cfg.model_name = "EleutherAI/pythia-70m-deduped"
@@ -644,4 +678,4 @@ def topk_synthetic_comparison():
     sweep(topk_comparison, cfg)
 
 if __name__ == "__main__":
-    run_across_layers_mlp_untied()
+    run_across_layers_resid_untied_tinystories()
