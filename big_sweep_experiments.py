@@ -578,7 +578,7 @@ def run_across_layers_resid_untied_tinystories():
     cfg.use_wandb = False
     cfg.save_every = 2
     cfg.tied_ae=False
-    for layer in [0]:
+    for layer in [0, 1, 2]:
         layer_loc = "residual"
         if layer_loc == 'mlp':
             cfg.activation_width = 3072
@@ -586,7 +586,7 @@ def run_across_layers_resid_untied_tinystories():
             cfg.activation_width = 768
         else:
             raise Exception(f"Unknown layer_loc {layer_loc}")
-        for dict_ratio in [2]:
+        for dict_ratio in [1, 2, 4, 8]:
             cfg.layer = layer
             cfg.layer_loc = layer_loc
             cfg.learned_dict_ratio = dict_ratio
@@ -596,7 +596,7 @@ def run_across_layers_resid_untied_tinystories():
             cfg.use_synthetic_dataset = False
             cfg.dtype = torch.float32
             cfg.lr = 3e-4
-            cfg.n_chunks=10
+            cfg.n_chunks=50
 
             sweep(dense_l1_range_experiment, cfg)
 
