@@ -3,6 +3,7 @@ import numpy as np
 from dataclasses import dataclass
 from circuitsvis.activations import text_neuron_activations
 from einops import rearrange
+from torch.utils.data import DataLoader
 
 def hyperparams_match(matchers, hyperparams):
     for k in set(hyperparams.keys()).intersection(matchers.keys()):
@@ -31,6 +32,22 @@ def load_autoencoders(desired_hyperparams, hyperparams_by_path):
                         hyperparams=dict(**path_hyperparams, **ae_hyperparams)
                     ))
     return located_autoencoders
+
+def get_dictionary_activations(model, autoencoder, dataset, cache_name, token_amount, device, batch_size):
+    learned_dict = autoencoder.get_learned_dict()
+    d_dict, d_model = learned_dict.shape
+    dictionary_activations = torch.zeros((dataset.num_rows*token_amount, d_dict))
+    with torch.no_grad(), dataset.formatted_as('pt'):
+        dl = Dataloader(dataset['input_ids'], batch_size=batch_size)
+        for i, batch in enumerate(dl):
+            _, cache = model.run_with_cache(batch.to(device))
+            batched_cache_acts = rearrange(cache[cache_name], 'b s n -> (b s) n')
+            batched_dict_acts = autoencoder.encode(batched_cache_acts)
+            dictionary_activations[i*batch_size*token_amount:(i+1)*batch_size*token_amount,:] = batched_dict_acts
+    return dictionary_activations
+
+
+
 
 def get_feature_datapoints(feature_index, model, n_datapoints, token_amount, dictionary_activations, dataset, k=10, setting="max"):
     best_feature_activations = dictionary_activations[:, feature_index]
