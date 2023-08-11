@@ -28,7 +28,14 @@ import standard_metrics
 from autoencoders.learned_dict import LearnedDict, UntiedSAE, TiedSAE
 
 def get_model(cfg):
-    if cfg.model_name in ["gpt2", "EleutherAI/pythia-70m-deduped", "EleutherAI/pythia-160m-deduped"]:
+    recognized_model_names = [
+        "gpt2",
+        "EleutherAI/pythia-70m-deduped",
+        "EleutherAI/pythia-160m-deduped",
+        "roneneldan/TinyStories-33M",
+    ]
+
+    if cfg.model_name in recognized_model_names:
         model = HookedTransformer.from_pretrained(cfg.model_name, device=cfg.device)
     else:
         raise ValueError("Model name not recognised")
