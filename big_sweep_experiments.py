@@ -257,7 +257,7 @@ def dense_l1_range_experiment(cfg):
         n_per_device = math.ceil(len(l1_values) / torch.cuda.device_count())
         cfgs = l1_values[i*n_per_device:(i+1)*n_per_device]
         dict_size = int(cfg.activation_width * cfg.learned_dict_ratio)
-        [print(f' {k}: {v}') for k, v in cfg.items()]
+        [print(f' {k}: {v}') for k, v in cfg.items() if k == 'activation_width']
         import sys; sys.exit()
         if cfg.tied_ae:
             models = [
