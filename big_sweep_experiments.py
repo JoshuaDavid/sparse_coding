@@ -598,6 +598,8 @@ def run_across_layers_resid_untied_tinystories():
             cfg.lr = 3e-4
             cfg.n_chunks=10
 
+            print(cfg)
+            import sys; sys.exit()
             sweep(dense_l1_range_experiment, cfg)
 
         # delete the dataset
