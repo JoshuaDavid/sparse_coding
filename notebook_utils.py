@@ -169,7 +169,7 @@ def get_tokens_and_activations(text, feature, autoencoder, model, cache_name):
 
 def visualize_text(text, feature, autoencoder, model, cache_name, setting="plot"):
     tokens, activations = get_tokens_and_activations(text, feature, autoencoder, model, cache_name)
-    return text_neuron_activations(tokens=display_text_list, activations=act_list)
+    return text_neuron_activations(tokens=tokens, activations=activations)
 
 def ablate_feature_direction(tokens, feature, model, cache_name, autoencoder):
     def ablation_hook(value, hook):
