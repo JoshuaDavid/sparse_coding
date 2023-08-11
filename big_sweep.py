@@ -281,8 +281,6 @@ def sweep(ensemble_init_func, cfg):
         import warnings
         warnings.simplefilter('ignore')
     
-    print('a')
-    [print(f' {k}: {v}') for k, v in cfg.items() if k == 'activation_width']
     torch.set_grad_enabled(False)
     with torch.no_grad():
         torch.cuda.empty_cache()
@@ -290,14 +288,10 @@ def sweep(ensemble_init_func, cfg):
     torch.manual_seed(0)
     np.random.seed(0)
 
-    print('b')
-    [print(f' {k}: {v}') for k, v in cfg.items() if k == 'activation_width']
     start_time = datetime.datetime.now().strftime("%Y%m%d-%H%M%S")
     os.makedirs(cfg.dataset_folder, exist_ok=True)
     os.makedirs(cfg.output_folder, exist_ok=True)
 
-    print('c')
-    [print(f' {k}: {v}') for k, v in cfg.items() if k == 'activation_width']
     if cfg.use_wandb:
         secrets = json.load(open("secrets.json"))
         wandb.login(key=secrets["wandb_key"])
@@ -310,14 +304,11 @@ def sweep(ensemble_init_func, cfg):
         init_model_dataset(cfg)
 
     print("Initialising ensembles...", end=" ")
-    [print(f' {k}: {v}') for k, v in cfg.items() if k == 'activation_width']
 
     # the ensemble initialization function returns
     # a list of (ensemble, args, name) tuples
     # and a dict of hyperparam ranges
     ensembles, ensemble_hyperparams, buffer_hyperparams, hyperparam_ranges = ensemble_init_func(cfg)
-    print('e')
-    [print(f' {k}: {v}') for k, v in cfg.items() if k == 'activation_width']
 
     # ensemble_hyperparams are constant across all models in a given ensemble
     # they are stored in the ensemble's args
@@ -327,7 +318,6 @@ def sweep(ensemble_init_func, cfg):
     cfg.buffer_hyperparams = buffer_hyperparams
 
     print("Ensembles initialised.")
-    [print(f' {k}: {v}') for k, v in cfg.items() if k == 'activation_width']
 
     n_chunks = len(os.listdir(cfg.dataset_folder))
 
@@ -335,8 +325,6 @@ def sweep(ensemble_init_func, cfg):
 
     if cfg.n_repetitions is not None:
         chunk_order = np.tile(chunk_order, cfg.n_repetitions)
-    print('f')
-    [print(f' {k}: {v}') for k, v in cfg.items() if k == 'activation_width']
 
     for i, chunk_idx in enumerate(chunk_order):
         print(f"Chunk {i+1}/{n_chunks}")
