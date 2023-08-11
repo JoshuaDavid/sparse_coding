@@ -227,7 +227,7 @@ def init_model_dataset(cfg):
     if cfg.layer_loc =="mlp":
         cfg.activation_width = 2048
     else:
-        if cfg.model_name == "EleutherAI/pythia-160m-deduped":
+        if cfg.model_name in ["EleutherAI/pythia-160m-deduped", "roneneldan/TinyStories-33M"]:
             cfg.activation_width = 768
         else:
             cfg.activation_width = 512
