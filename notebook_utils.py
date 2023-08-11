@@ -148,7 +148,7 @@ def ablate_text(text, feature, autoencoder, model, cache_name, setting="plot"):
     else:
         return display_text_list, activation_list
 
-def visualize_text(text, feature, autoencoder, model, cache_name, setting="plot"):
+def get_tokens_and_activations(text, feature, autoencoder, model, cache_name):
     if isinstance(text, str):
         text = [text]
     display_text_list = []
@@ -163,6 +163,12 @@ def visualize_text(text, feature, autoencoder, model, cache_name, setting="plot"
         display_text_list += [x.replace('\n', '\\newline') for x in split_text] + ["\n"]
         act_list += get_neuron_activation(token, feature, autoencoder, model, cache_name) + [0.0]
     act_list = torch.tensor(act_list).reshape(-1,1,1)
+    tokens=display_text_list
+    activations=act_list
+    return tokens, activations
+
+def visualize_text(text, feature, autoencoder, model, cache_name, setting="plot"):
+    tokens, activations = get_tokens_and_activations(text, feature, autoencoder, model, cache_name)
     return text_neuron_activations(tokens=display_text_list, activations=act_list)
 
 def ablate_feature_direction(tokens, feature, model, cache_name, autoencoder):
