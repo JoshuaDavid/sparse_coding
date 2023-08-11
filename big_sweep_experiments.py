@@ -258,6 +258,7 @@ def dense_l1_range_experiment(cfg):
         cfgs = l1_values[i*n_per_device:(i+1)*n_per_device]
         dict_size = int(cfg.activation_width * cfg.learned_dict_ratio)
         [print(f' {k}: {v}') for k, v in cfg.items()]
+        import sys; sys.exit()
         if cfg.tied_ae:
             models = [
                 FunctionalTiedSAE.init(cfg.activation_width, dict_size, l1_alpha, bias_decay=0.0, dtype=cfg.dtype)
@@ -599,8 +600,6 @@ def run_across_layers_resid_untied_tinystories():
             cfg.lr = 3e-4
             cfg.n_chunks=10
 
-            print(cfg)
-            import sys; sys.exit()
             sweep(dense_l1_range_experiment, cfg)
 
         # delete the dataset
