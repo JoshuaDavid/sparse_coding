@@ -107,7 +107,7 @@ class dotdict(dict):
 def check_use_baukit(model_name):
     if model_name in ["nanoGPT"]:
         return True
-    elif model_name in ["gpt2", "EleutherAI/pythia-70m-deduped"]:
+    elif model_name in ["gpt2", "EleutherAI/pythia-70m-deduped", "roneneldan/TinyStories-33M"]:
         return False
     else:
         raise NotImplementedError(f"Unknown if model {model_name} uses baukit")
