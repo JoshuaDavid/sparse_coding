@@ -180,7 +180,9 @@ def ablate_feature_direction(tokens, feature, model, cache_name, autoencoder):
         act = autoencoder.encode(int_val)
 
         # Subtract value with feature direction*act_of_feature
-        if hasattr(autoencoder, 'decoder'):
+        if hasattr(autoencoder, 'decoder') and type(autoencoder.decoder) == torch.Tensor:
+            feature_direction = torch.outer(act[:,feature], autoencoder.decoder.T[:, feature])
+        elif hasattr(autoencoder, 'decoder') and hasattr(autoencoder.decoder, 'weight'):
             feature_direction = torch.outer(act[:, feature], autoencoder.decoder.weight[:, feature])
         elif hasattr(autoencoder, 'encoder') and hasattr(autoencoder, 'encoder_bias'):
             feature_direction = torch.outer(act[:, feature], autoencoder.encoder.T[:, feature])
