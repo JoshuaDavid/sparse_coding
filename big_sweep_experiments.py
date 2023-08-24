@@ -479,13 +479,14 @@ def run_across_layers():
             # delete the dataset to save space
             shutil.rmtree(cfg.dataset_folder)
 
-def run_across_layers_attn():
+def run_across_layers_attn_k():
     cfg = parse_args()
     cfg.model_name = "EleutherAI/pythia-70m-deduped"
     cfg.dataset_name = "EleutherAI/pile"
 
     cfg.batch_size = 2048
     cfg.use_wandb = False
+    cfg.use_baukit = False
     cfg.save_every = 2
     cfg.tied_ae=True
     for layer in [3]:
@@ -678,4 +679,4 @@ def topk_synthetic_comparison():
     sweep(topk_comparison, cfg)
 
 if __name__ == "__main__":
-    run_across_layers_resid_untied_tinystories()
+    run_across_layers_attn_k()
