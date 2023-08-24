@@ -1,7 +1,12 @@
 import torch
+from transformer_lens import HookedTransformer
+from autoencoders.learned_dict import LearnedDict
 import numpy as np
 from dataclasses import dataclass
+from datasets.arrow_dataset import Dataset
+from datasets import load_dataset
 from circuitsvis.activations import text_neuron_activations
+from fancy_einsum import einsum
 from einops import rearrange
 from torch.utils.data import DataLoader
 

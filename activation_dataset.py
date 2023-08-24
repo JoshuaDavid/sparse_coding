@@ -216,7 +216,11 @@ def make_activation_dataset(
             else:
                 _, cache = model.run_with_cache(batch, stop_at_layer=layer+1)
                 mlp_activation_data = cache[tensor_name].to(device).to(torch.float16)  # NOTE: could do all layers at once, but currently just doing 1 layer
-                mlp_activation_data = rearrange(mlp_activation_data, "b s n -> (b s) n")
+                if tensor_name.endswith('attn.hook_k'):
+                    # transformer_lens splits each head into its own layer
+                    mlp_activation_data = rearrange(mlp_activation_data, "b s h n -> (b s) (h n)")
+                else:
+                    mlp_activation_data = rearrange(mlp_activation_data, "b s n -> (b s) n")
 
             dataset.append(mlp_activation_data)
             if len(dataset) >= max_chunks:

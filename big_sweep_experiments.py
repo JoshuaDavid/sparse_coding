@@ -488,14 +488,14 @@ def run_across_layers_attn():
     cfg.use_wandb = False
     cfg.save_every = 2
     cfg.tied_ae=True
-    for layer in [0, 1, 2, 3, 4, 5]:
-        layer_loc = "attn"
-        for dict_ratio in [1, 2, 4, 8]:
+    for layer in [3]:
+        layer_loc = "attn_k"
+        for dict_ratio in [2]:
             cfg.layer = layer
             cfg.layer_loc = layer_loc
             cfg.learned_dict_ratio = dict_ratio
 
-            cfg.output_folder = f"output_attn_sweep{'_tied' if cfg.tied_ae else ''}_{cfg.layer_loc}_l{cfg.layer}_r{int(cfg.learned_dict_ratio)}"
+            cfg.output_folder = f"output_attn_k_sweep{'_tied' if cfg.tied_ae else ''}_{cfg.layer_loc}_l{cfg.layer}_r{int(cfg.learned_dict_ratio)}"
             cfg.dataset_folder = f"pilechunks_l{cfg.layer}_{cfg.layer_loc}"
             cfg.use_synthetic_dataset = False
             cfg.dtype = torch.float32
