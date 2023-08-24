@@ -489,9 +489,9 @@ def run_across_layers_attn_k():
     cfg.use_baukit = False
     cfg.save_every = 2
     cfg.tied_ae=True
-    for layer in [3]:
+    for layer in [0, 1, 2, 3, 4, 5]:
         layer_loc = "attn_k"
-        for dict_ratio in [2]:
+        for dict_ratio in [1, 2, 4, 8]:
             cfg.layer = layer
             cfg.layer_loc = layer_loc
             cfg.learned_dict_ratio = dict_ratio
@@ -501,7 +501,7 @@ def run_across_layers_attn_k():
             cfg.use_synthetic_dataset = False
             cfg.dtype = torch.float32
             cfg.lr = 3e-4
-            cfg.n_chunks=10
+            cfg.n_chunks=50
 
             sweep(dense_l1_range_experiment, cfg)
 
